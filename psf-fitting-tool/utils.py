@@ -214,7 +214,7 @@ def fit_2dgaussian_assym(data, *, xypos=None, fwhm=None, fix_fwhm=True,
         model.x_fwhm.fixed = False
         model.y_fwhm.fixed = False
                 
-    phot = PSFPhotometry(model, fit_shape, progress_bar=True)
+    phot = PSFPhotometry(model, fit_shape, progress_bar=False)
     _ = phot(data, mask=mask, error=error, init_params=init_params)
 
     return phot

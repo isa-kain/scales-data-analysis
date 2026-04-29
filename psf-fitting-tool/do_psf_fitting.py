@@ -5,15 +5,15 @@ Author: Isabel Kain
 Date: 2026-01-7
 Description: 
 
-This script does PSF fitting on SCALES monochrometer IFU data. It takes the result of coarse centroiding 
+This script does PSF fitting on a SCALES monochrometer IFU datacube. It takes the result of coarse centroiding 
 by the SCALES pipeline, and a background-subtracted and reduced datacube, and fits a 2D gaussian to each individual 
 lenslet spot. 
 
-This script returns and saves a [n_wavelength x 6 x 103 x 110] numpy array, where the first dimension 
-is the number of wavelength slices in the datacube, 6 is the number parameters returned by the PSF fitting routine 
-(x_centroid, y_centroid, x_FWHM, y_FWHM, rotation angle of asymmetric 2D gaussian, and a fit quality flag), the last 
-two dimensions are the number of lenslets in the lenslet array. If a micropupil is not found by the pipeline, the 
-corresponding values will be NaNs.
+This script returns and saves a [n_wavelength x 8 x 103 x 110] numpy array, where the first dimension 
+is the number of wavelength slices in the datacube, 8 is the number parameters returned by the PSF fitting routine 
+(x_centroid, y_centroid, x_FWHM, y_FWHM, PSF rotation angle, FWHM || dispersion, FWHM |_ dispersion, and a fit 
+quality flag), the last two dimensions are the number of lenslets in the lenslet array. If a micropupil is not 
+found by the pipeline, the corresponding values will be NaNs.
 '''
 
 import concurrent.futures
@@ -28,16 +28,16 @@ from utils import *
 #########################################################################################################################
 
 # Set filepath for SCALES post-pipeline data products
-datapath = '/Users/isabelkain/Desktop/SCALES/scales-data-analysis/psf-fitting-tool/data'
+datapath = '/Users/isabelkain/Desktop/SCALES/CD3/IFS_monochrometer_scans/L-prism'
 
 # Read in a background-subtracted SCALES monochrometer datacube
-cube = fits.getdata(f'{datapath}/20251027_mono_cube_L_new.fits')
+cube = fits.getdata(f'{datapath}/data/20251027_mono_cube_L_new.fits')
 
 # Read in rough centroids from pipeline
 a = fits.getdata(f'{datapath}/L_positions_new.fits')
 
 # Set path to save output of PSF-fitting
-savepath = '/Users/isabelkain/Desktop/SCALES/scales-data-analysis/psf-fitting-tool/results'
+savepath = np.copy(datapath)
 
 # Set filename for output of PSF-fitting
 fname = 'L_psf_fitting_results' # .fits is automatically appended
@@ -45,8 +45,8 @@ fname = 'L_psf_fitting_results' # .fits is automatically appended
 
 #########################################################################################################################
 
-def eccentricity(a,b):
-    '''a and b are semi-major and semi-minor axes of ellipse. Can be scalar or same-shape ndarrays.'''
+def eccentricity(a, b):
+    '''a and b are semi-major and semi-minor axes of ellipse, where a > b. Can be scalar or same-shape ndarrays.'''
     return np.sqrt(1. - (b**2. / a**2.))
 
 
@@ -143,7 +143,7 @@ def fit_spots(params):
 
     # Check if any best-fit parameters are unreasonable
     flag_check = phot_tbl['flags'] > 0           # if any flags raised
-    fwhmx_check = phot_tbl['x_fwhm_fit'] > 5.    # if FWHM_x larger than certain threshold
+    fwhmx_check = phot_tbl['x_fwhm_fit'] > 5.    # most FWHM_x within ~ 2.5px
     fwhmy_check = phot_tbl['y_fwhm_fit'] > 5.    # if FWHM_y larger than certain threshold
     xerr_check = phot_tbl['x_err'] > 0.5         # uncertainty in centroid X position
     yerr_check = phot_tbl['y_err'] > 0.5         # uncertainty in centroid Y position
@@ -234,8 +234,8 @@ if __name__ == "__main__":
     
     # Set up inputs as list of tuples [(datacube_slice, centroid_positions), …]
     
-#     param_list = [(cube[i], a[i, :, :, :]) for i in range(0, np.shape(cube)[0])]
-    param_list = [(cube[i], a[i, :, :, :]) for i in range(0, 5)]
+    param_list = [(cube[i], a[i, :, :, :]) for i in range(0, np.shape(cube)[0])]
+#     param_list = [(cube[i], a[i, :, :, :]) for i in range(0, 5)]
     print(len(param_list))
 
 
@@ -260,30 +260,34 @@ if __name__ == "__main__":
     
     # Measure the direction of dispersion from centroid shifts
     dispersion_map = measure_dispersion_direction(results) # returns 103x110 map
-    print('dispersion_map:', np.shape(dispersion_map))
     dispersion_angle = np.nanmean(dispersion_map[60:80, 60:80]) # sample most uniform region of image
+    print(f'Dispersion angle: {dispersion_angle:0.2f} deg from horizontal || {90-dispersion_angle:0.2f} deg from vertical')
     
     # Pull out fwhm_x, fwhm_y, and theta parameters from fitting routine
     fwhm_x = results[:, 2, :, :]
     fwhm_y = results[:, 3, :, :]
-    theta = wrap_angles(results[:, 4, :, :])
-
+    theta = wrap_angles(results[:, 4, :, :]) # rotation angle of best-fit 2D Gauss PSF model from horizontal (deg)
+    
     # Find angle difference between dispersion direction and rotation of PSF
-    diff = diff_angles(theta, dispersion_angle)
+    diff = diff_angles(theta, dispersion_angle) # degrees
     
-    # Calculate FWHM along direction of dispersion
+    # Calculate FWHM along, against direction of dispersion
     fwhm_dispers = calc_ellipse_radius(fwhm_x, fwhm_y, diff)
+    print('DEBUG :: calc FWHM || dispers', np.nanmean(fwhm_dispers))
     
+    print('DEBUG :: pre FWHM |_ dispers', np.nanmean(diff), np.nanmean(diff)+90., (np.nanmean(diff)+90.)%180.)
+    fwhm_anti_dispers = calc_ellipse_radius(fwhm_x, fwhm_y, (diff+90.)%180.)
+    print('DEBUG :: post FWHM |_ dispers', np.nanmean(fwhm_anti_dispers))
   
-    ## Save results
+    ## Save results (reminder: cenx, ceny, fwhmx, fwhmy, theta, fwhm_disp, fwhm_adisp, quality)
     
     # Add to results array. Starts out: 56x6x103x100, becomes 56x8x103x110
     new_results = np.insert(results, 5, fwhm_dispers, axis=1)
-    new_new_results = np.insert(new_results, 6, dispersion_map, axis=1)
-    print(np.shape(new_new_results))
+    new_results = np.insert(new_results, 6, fwhm_anti_dispers, axis=1)
+    print(np.shape(new_results))
     
     # Save to .fits
-    hdu = fits.PrimaryHDU(data=np.array(new_new_results))
+    hdu = fits.PrimaryHDU(data=np.array(new_results))
     hdu.writeto(f'{savepath}/{fname}.fits', overwrite=True)
 
 
