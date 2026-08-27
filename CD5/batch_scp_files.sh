@@ -1,0 +1,1 @@
+/Users/isabelkain/Desktop/SCALES/CD5/batch_scp_files.sh
