@@ -621,8 +621,8 @@ def find_avg_spotpos(spot_tracks_u,lmin,lmax,show_plots=False):
         lam0 = spot_tracks_u[j][keys[0]][3]
         chx = 1
         chy = 1
-        lmin = 2.9
-        lmax = 4.15
+        # lmin = 2.9
+        # lmax = 4.15
         lam = 0.5*(lmin+lmax)
         xj,yj = get_trace_pos(lam,x0,y0,lam0,chx,chy,lmin,lmax)
         avgs.append([xj,yj])

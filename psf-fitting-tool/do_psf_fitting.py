@@ -90,7 +90,7 @@ def measure_dispersion_direction(results):
     print('x_cen_shift:', np.shape(x_cen_shift), np.shape(y_cen_shift))
     
     # Measure angular centroid shift between wavelength slices (ndarray 55x103x110)
-    disp_dir = np.rad2deg( np.arctan(y_cen_shift/x_cen_shift) ) # angle from horizontal axis 
+    disp_dir = np.rad2deg( np.arctan(y_cen_shift/x_cen_shift) ) # angle from +x axis 
     print('disp_dir:', np.shape(disp_dir))
 
     # Measure scalar dispersion direction
@@ -178,7 +178,7 @@ def fit_spots(params):
     x_fwhm_dropnan = phot_tbl['x_fwhm_fit'].value
     y_fwhm_dropnan = phot_tbl['y_fwhm_fit'].value
 
-    # Orientation angle of ellipse
+    # Orientation angle of ellipse (degrees)
     theta_dropnan = phot_tbl['theta_fit'].value
 
 
@@ -266,7 +266,7 @@ if __name__ == "__main__":
     # Pull out fwhm_x, fwhm_y, and theta parameters from fitting routine
     fwhm_x = results[:, 2, :, :]
     fwhm_y = results[:, 3, :, :]
-    theta = wrap_angles(results[:, 4, :, :]) # rotation angle of best-fit 2D Gauss PSF model from horizontal (deg)
+    theta = wrap_angles(results[:, 4, :, :]) # rotation angle of best-fit 2D Gauss PSF model CCW from +X axis (deg)
     
     # Find angle difference between dispersion direction and rotation of PSF
     diff = diff_angles(theta, dispersion_angle) # degrees

@@ -145,7 +145,7 @@ if os.path.isfile('L_C2_rectmat_new_260227.npz')==False:
     spots = find_all_spots(ims_cal,lams_u,plot_im=False)
     spot_tracks = track_sequentially(spots, max_match_distance=6)
     spot_tracks_u = remove_spot_dups(spot_tracks,lams_u)
-    avgs = find_avg_spotpos(spot_tracks_u,2.9,4.15,show_plots=True)
+    avgs = find_avg_spotpos(spot_tracks_u, 2.9, 4.15,show_plots=True)
     avgs_new = remove_silos(avgs)
     final_posns = get_lensarr_xy(avgs_new)
     posarr = make_posarr(ims_cal,final_posns,spot_tracks_u,show_plots=True)
